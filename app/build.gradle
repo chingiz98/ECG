@@ -32,4 +32,5 @@ dependencies {
     compile (group: 'com.scichart.library', name: 'charting', version: '2.5.0.2618', ext: 'aar')
     compile (group: 'com.scichart.library', name: 'extensions', version: '2.5.0.2618', ext: 'aar')
     implementation files('libs\\edf.jar')
+    implementation files('libs\\edf4j-1.0b.jar')
 }

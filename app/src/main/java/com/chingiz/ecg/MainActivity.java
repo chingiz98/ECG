@@ -2,6 +2,8 @@ package com.chingiz.ecg;
 
 import androidx.appcompat.app.AppCompatActivity;
 import br.unb.biologiaanimal.edf.EDF;
+import ru.mipt.edf.EDFParser;
+import ru.mipt.edf.EDFParserResult;
 
 import android.os.Bundle;
 import android.os.Environment;
@@ -25,6 +27,12 @@ import com.scichart.charting.visuals.renderableSeries.IRenderableSeries;
 import com.scichart.drawing.utility.ColorUtil;
 import com.scichart.extensions.builders.SciChartBuilder;
 
+import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 
@@ -33,14 +41,15 @@ public class MainActivity extends AppCompatActivity {
 
     Spinner spinner;
     SciChartSurface surface;
-    byte[] signal;
+    double[] signal;
     XyDataSeries lineData;
     EDF edf;
     String labels[];
     IRenderableSeries lineSeries;
+    EDFParserResult result;
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    protected void onCreate(Bundle savedInstanceState)  {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         spinner = (Spinner) findViewById(R.id.spinner);
@@ -59,9 +68,17 @@ public class MainActivity extends AppCompatActivity {
 
         }
 
-        edf = new EDF(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS) + "/ecgca102.edf");
-        labels = edf.getLabels();
-        signal = (byte[]) edf.getRecords().get(labels[2]);
+        InputStream is = null;
+        result = null;
+        try {
+            is = new BufferedInputStream(new FileInputStream(new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS) + "/ecgca102.edf")));
+            result = EDFParser.parseEDF(is);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        labels = result.getHeader().getChannelLabels();
+        signal = result.getSignal().getValuesInUnits()[0];
         ArrayList<String> arrayList = new ArrayList<>();
 
         for(String i : labels){
@@ -80,11 +97,11 @@ public class MainActivity extends AppCompatActivity {
 
         final IAxis xAxis = sciChartBuilder.newNumericAxis()
                 .withAxisTitle("")
-                .withVisibleRange(0, 50)
+                .withVisibleRange(0, 1000)
                 .build();
 
-        byte min = signal[0];
-        byte max = signal[0];
+        double min = signal[0];
+        double max = signal[0];
         for(int i = 1; i < signal.length; i++){
             if(signal[i] < min)
                 min = signal[i];
@@ -113,8 +130,39 @@ public class MainActivity extends AppCompatActivity {
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 String tutorialsName = parent.getItemAtPosition(position).toString();
 
+                surface.getYAxes().clear();
+                surface.getXAxes().clear();
+                surface.getChartModifiers().clear();
                 surface.getRenderableSeries().clear();
-                signal = (byte[]) edf.getRecords().get(labels[position]);
+
+                signal = result.getSignal().getValuesInUnits()[position];
+
+                final IAxis xAxis = sciChartBuilder.newNumericAxis()
+                        .withAxisTitle("")
+                        .withVisibleRange(0, 1000)
+                        .build();
+
+                double min = signal[0];
+                double max = signal[0];
+                for(int i = 1; i < signal.length; i++){
+                    if(signal[i] < min)
+                        min = signal[i];
+                    if(signal[i] > max)
+                        max = signal[i];
+                }
+
+                final IAxis yAxis = sciChartBuilder.newNumericAxis()
+                        .withAxisTitle("").withVisibleRange(min, max).build();
+
+                ModifierGroup chartModifiers = sciChartBuilder.newModifierGroup()
+                        .withPinchZoomModifier().withReceiveHandledEvents(true).build()
+                        .withZoomPanModifier().withReceiveHandledEvents(true).build()
+                        .build();
+
+                Collections.addAll(surface.getYAxes(), yAxis);
+                Collections.addAll(surface.getXAxes(), xAxis);
+                Collections.addAll(surface.getChartModifiers(), chartModifiers);
+
 
                 Toast.makeText(parent.getContext(), "Selected: " +  signal[0],Toast.LENGTH_LONG).show();
                 Log.d("SAS", "" + signal[0]);
